@@ -1,9 +1,8 @@
 # Host (Linux/macOS) SDL build — included from the project Makefile.
 #
-#   make host                     # SDL2, same PROJECT_KIND as device build
+#   make host                     # SDL2 → race_host
 #   make host HOST_SDL=3          # SDL3
-#   make host PROJECT_KIND=homebrew
-#   ./example_host [rom]          # optional ROM path (cores); or HOST_ROM=…
+#   ./race_host [rom]             # optional ROM path; or HOST_ROM=…
 #
 # Requires: pkg-config + libsdl2-dev / sdl2 (or sdl3).
 
@@ -13,12 +12,7 @@ HOST_SCALE ?= 2
 HOST_CC    ?= cc
 
 HOST_BUILD_DIR := build/host/$(PROJECT_KIND)_sdl$(HOST_SDL)
-
-ifeq ($(PROJECT_KIND),homebrew)
-HOST_BIN := ExampleHB_host
-else
 HOST_BIN := $(CORE_NAME)_host
-endif
 
 ifeq ($(HOST_SDL),3)
 HOST_SDL_PC := sdl3
@@ -28,12 +22,30 @@ else
 $(error HOST_SDL must be 2 or 3 (got '$(HOST_SDL)'))
 endif
 
-HOST_PKG_CFLAGS := $(shell pkg-config --cflags $(HOST_SDL_PC) 2>/dev/null)
-HOST_PKG_LIBS   := $(shell pkg-config --libs $(HOST_SDL_PC) 2>/dev/null)
-# macOS sdl2.pc pulls -lSDL2main which wants SDL_main; we provide main() ourselves.
+# Homebrew (macOS) installs *.pc under $(brew --prefix)/lib/pkgconfig.
+BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+PKG_CONFIG_PATH_FOR_HOST := $(BREW_PREFIX)/lib/pkgconfig$(if $(PKG_CONFIG_PATH),:$(PKG_CONFIG_PATH),)
+
+HOST_PKG_CFLAGS := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH_FOR_HOST)" pkg-config --cflags $(HOST_SDL_PC) 2>/dev/null)
+HOST_PKG_LIBS   := $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH_FOR_HOST)" pkg-config --libs $(HOST_SDL_PC) 2>/dev/null)
 HOST_PKG_LIBS   := $(filter-out -lSDL2main,$(HOST_PKG_LIBS))
+
+ifeq ($(HOST_PKG_LIBS),)
+ifneq ($(BREW_PREFIX),)
+ifeq ($(HOST_SDL),2)
+HOST_PKG_CFLAGS := -I$(BREW_PREFIX)/include -I$(BREW_PREFIX)/include/SDL2 -D_THREAD_SAFE
+HOST_PKG_LIBS := -L$(BREW_PREFIX)/lib -lSDL2
+else
+HOST_PKG_CFLAGS := -I$(BREW_PREFIX)/include
+HOST_PKG_LIBS := -L$(BREW_PREFIX)/lib -lSDL3
+endif
+endif
+endif
+
+ifeq ($(filter host,$(MAKECMDGOALS)),host)
 ifeq ($(HOST_PKG_LIBS),)
 $(warning pkg-config $(HOST_SDL_PC) not found — host link may fail. Install SDL$(HOST_SDL) devel package.)
+endif
 endif
 
 HOST_INC_ROOT := $(GNW_CORE_SDK)/include
@@ -45,6 +57,7 @@ HOST_DEFS := \
 	-DSDL_MAIN_HANDLED=1 \
 	-DIS_LITTLE_ENDIAN \
 	-DGNW_DISABLE_COMPRESSION \
+	-DGNW_CORE_ENTRY_TARGET=$(CORE_ENTRY) \
 	$(CORE_C_DEFS)
 
 HOST_INCLUDES := \
@@ -56,6 +69,8 @@ HOST_INCLUDES := \
 	-I$(HOST_INC_ROOT)/Core/Inc/porting \
 	-I$(HOST_INC_ROOT)/Core/Src/porting/lib \
 	-I$(HOST_INC_ROOT)/Core/Src/porting/lib/FatFs \
+	-I$(HOST_INC_ROOT)/retro-go-stm32/components/odroid \
+	$(CORE_C_INCLUDES) \
 	$(HOST_PKG_CFLAGS)
 
 HOST_CFLAGS := -O2 -g -Wall -Wextra -std=c11 \
@@ -82,7 +97,7 @@ $(HOST_BIN): $(HOST_OBJS)
 	$(V)$(ECHO) [ LD HOST ] $@
 	$(V)$(HOST_CC) -o $@ $(HOST_OBJS) $(HOST_PKG_LIBS)
 
-# Explicit pattern under HOST_BUILD_DIR only (do not collide with sdk ARM rules).
+# Explicit patterns under HOST_BUILD_DIR (do not collide with sdk ARM rules).
 $(HOST_BUILD_DIR)/src/%.o: src/%.c
 	$(V)mkdir -p $(dir $@)
 	$(V)$(ECHO) [ CC HOST ] $<
@@ -95,7 +110,7 @@ $(HOST_BUILD_DIR)/host/%.o: host/%.c
 
 host_clean:
 	$(V)rm -rf build/host
-	$(V)rm -f $(CORE_NAME)_host ExampleHB_host
+	$(V)rm -f $(CORE_NAME)_host
 
 clean:: host_clean
 

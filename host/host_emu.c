@@ -619,11 +619,46 @@ void odroid_overlay_alert(const char *text) { (void)text; }
 uint8_t *odroid_overlay_cache_file_in_flash(const char *file_path, uint32_t *file_size_p,
                                             bool byte_swap)
 {
-    (void)file_path;
+    /* Host stand-in for XIP: load the whole file into a malloc'd buffer that
+     * lives for the process lifetime (same contract as flash-mapped ROM). */
+    FILE *f;
+    long sz;
+    uint8_t *buf;
+    size_t n;
+
     (void)byte_swap;
     if (file_size_p)
         *file_size_p = 0;
-    return NULL;
+    if (!file_path || !file_path[0])
+        return NULL;
+
+    f = fopen(file_path, "rb");
+    if (!f)
+        return NULL;
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    sz = ftell(f);
+    if (sz <= 0) {
+        fclose(f);
+        return NULL;
+    }
+    rewind(f);
+    buf = (uint8_t *)malloc((size_t)sz);
+    if (!buf) {
+        fclose(f);
+        return NULL;
+    }
+    n = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    if (n != (size_t)sz) {
+        free(buf);
+        return NULL;
+    }
+    if (file_size_p)
+        *file_size_p = (uint32_t)sz;
+    return buf;
 }
 
 size_t odroid_overlay_cache_file_in_ram(const char *file_path, uint8_t *dest_address)
@@ -835,6 +870,36 @@ void wdog_refresh(void)
     host_poll_events();
     host_maybe_quit();
 }
+
+#include "bilinear.h"
+
+void imlib_draw_image(image_t *dst_img, image_t *src_img, int dst_x_start, int dst_y_start,
+                      int dst_stride, float x_scale, float y_scale, rectangle_t *roi,
+                      int rgb_channel, int alpha, const uint16_t *color_palette,
+                      const uint8_t *alpha_palette, image_hint_t hint,
+                      imlib_draw_row_callback_t callback, void *dst_row_override)
+{
+    (void)dst_img; (void)src_img; (void)dst_x_start; (void)dst_y_start;
+    (void)dst_stride; (void)x_scale; (void)y_scale; (void)roi;
+    (void)rgb_channel; (void)alpha; (void)color_palette; (void)alpha_palette;
+    (void)hint; (void)callback; (void)dst_row_override;
+}
+
+bool lcd_sleep_while_swap_pending(void)
+{
+    return false;
+}
+
+static odroid_display_scaling_t host_scaling = ODROID_DISPLAY_SCALING_FIT;
+static odroid_display_filter_t host_filter = ODROID_DISPLAY_FILTER_OFF;
+
+odroid_display_scaling_t odroid_display_get_scaling_mode(void) { return host_scaling; }
+void odroid_display_set_scaling_mode(odroid_display_scaling_t mode) { host_scaling = mode; }
+odroid_display_filter_t odroid_display_get_filter_mode(void) { return host_filter; }
+void odroid_display_set_filter_mode(odroid_display_filter_t mode) { host_filter = mode; }
+
+/* Referenced by flash.c setupNGFfilename (cart .NGF path); unused under GNW_NGP stubs. */
+char retro_save_directory[2048] = "./host_saves";
 
 void Error_Handler(void) { abort(); }
 void BSOD(BSOD_t fault, uint32_t pc, uint32_t lr)
