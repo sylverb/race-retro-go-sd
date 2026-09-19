@@ -6,7 +6,8 @@
  *
  * Memory:
  *   ITCM  — hot .text (tlcs900h, graphics, cz80, race-memory) via race_core.ld
- *   DTCM  — framebuffer + colour LUT + DAC ring (dtc_malloc); no ITCM data
+ *   DTCM  — framebuffer + colour LUT + DAC ring (dtc_malloc); no ITCM data.
+ *           TLCS decode tables stay in .rodata (cached AXI) — DTCM copy hurt.
  *   RAM_EMU — mainram / cpurom / cold code / BSS
  *   AHB   — avoided for Blip (accurate audio off by default)
  */
@@ -27,6 +28,7 @@
 #include "odroid_overlay.h"
 #include "appid.h"
 #include "bilinear.h"
+#include "odroid_settings.h"
 
 #ifndef HOST_BUILD
 #include "gw_core_bridge.h"
@@ -294,7 +296,7 @@ void app_main(uint8_t load_state, uint8_t start_paused, int8_t save_slot)
         ODROID_DIALOG_CHOICE_LAST
     };
 
-    /* DTCM bump for FB + palette + DAC (~95 KiB). Call before any dtc_malloc. */
+    /* DTCM: FB(~47K) + palette(16K) + DAC(~8K) ≈ 71 KiB of ~104 KiB. */
     dtc_init();
     ngp_framebuffer = (uint16_t *)dtc_malloc(NGP_WIDTH * NGP_HEIGHT * sizeof(uint16_t));
     if (ngp_framebuffer == NULL) {
@@ -315,6 +317,9 @@ void app_main(uint8_t load_state, uint8_t start_paused, int8_t save_slot)
     screen->w = NGP_WIDTH;
     screen->h = NGP_HEIGHT;
     screen->pixels = ngp_framebuffer;
+
+    /* Set max OC level */
+    SystemClock_Config(3);
 
     odroid_system_init(APPID_CORE, NGP_SAMPLE_RATE);
     odroid_system_emu_init(&LoadState, &SaveState, &Screenshot, NULL, NULL, NULL, NULL);

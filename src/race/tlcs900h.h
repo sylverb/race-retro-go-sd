@@ -66,6 +66,10 @@ void tlcs_clear_pending_interrupts(void);
 void tlcs_interrupt_wrapper(int irq);
 void tlcs_execute(int cycles, int skipRender); /* skipRender != 0: run the frame but render no video */
 
+/* Monotonic CPU cycle counter in soundStep units (post clock-gear). Used by
+ * the DAC path to hold each sample for the correct emulated duration. */
+extern uint64_t tlcs_cycles_total;
+
 /* Real-time clock determinism (see tlcs900h.c). rtc_reset captures the base
  * time; rtc_tick_frame advances the emulated clock once per frame. */
 extern int      rtc_deterministic;

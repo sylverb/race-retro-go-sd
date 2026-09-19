@@ -1,9 +1,11 @@
 /*
  * Neo Geo Pocket (RACE) — RAM_EMU entry + ITCM hot segment.
  *
- * ITCM (.text only): tlcs900h, graphics, cz80, race-memory.
+ * ITCM (.text only): graphics, cz80, race-memory.
+ *   tlcs900h is built -O3 (~68 KiB) and stays in RAM_EMU — too large for
+ *   the 64 KiB ITCM window; AXI I-cache still covers the interpreter loop.
  * DTCM (runtime):    framebuffer, totalpalette, dacBufferL via dtc_malloc.
- * RAM_EMU:           mainram, cpurom, cold code, BSS — no ITCM data.
+ * RAM_EMU:           mainram, cpurom, tlcs900h .text, cold code, BSS.
  */
 
 INCLUDE gnw_ram_emu.ld
@@ -24,7 +26,6 @@ SECTIONS
 
     . = ALIGN(4);
     EXCLUDE_FILE(
-      build/core/tlcs900h.o
       build/core/graphics.o
       build/core/cz80.o
       build/core/race-memory.o
@@ -63,7 +64,6 @@ SECTIONS
   .core_itcm __ITCM_CORE_START__ :
   {
     __CORE_ITCM_CODE_START__ = .;
-    build/core/tlcs900h.o(.text*)
     build/core/graphics.o(.text*)
     build/core/cz80.o(.text*)
     build/core/race-memory.o(.text*)

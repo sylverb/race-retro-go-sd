@@ -55,6 +55,12 @@ CORE_C_DEFS := \
 CORE_LDSCRIPT := race_core.ld
 CORE_EXTRA_SEGMENTS := itcm:core_itcm
 
+# Match oswan / firmware hot cores: -O3 + align.
+# tlcs900h alone is ~68 KiB at -O3 — keep it in RAM_EMU (AXI I-cache);
+# ITCM holds the smaller hot units (graphics / cz80 / race-memory).
+OPT = -O3
+RACE_ALIGN_CFLAGS := -falign-functions -falign-jumps -fmerge-all-constants
+
 GNW_CORE_SDK ?= sdk
 BUILD_DIR ?= build/$(PROJECT_KIND)
 
@@ -70,6 +76,9 @@ $(error This project is a dynamic core only (PROJECT_KIND=core))
 endif
 
 include $(GNW_CORE_SDK)/Makefile
+
+# Must come after sdk/Makefile defines CFLAGS.
+CFLAGS += $(RACE_ALIGN_CFLAGS)
 
 # CZ80 jump tables inflate Thumb size; match firmware recipe.
 $(BUILD_DIR)/cz80.o: CFLAGS += -fno-jump-tables

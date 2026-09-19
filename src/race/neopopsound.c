@@ -41,14 +41,12 @@ SoundChip toneChip;
 SoundChip noiseChip;
 
 /* ==== DAC */
-/* G&W: the DAC ring is fully drained every frame by dac_update(), so it only
- * needs a few frames of headroom (one frame ~ 735 samples @ 44.1kHz). The huge
- * 256K PC value (512KB array) does not fit the RAM_EMU overlay; 16K entries
- * (32KB) give ~22 frames of slack and overflow degrades to a wrap, not a crash. */
-#define DAC_BUFFERSIZE		(16 * 1024)
+/* G&W: drained every frame (~735 samples @ 44.1kHz). 4K entries (8 KiB) give
+ * ~5 frames of slack; sized to leave DTCM headroom for FB + palette. */
+#define DAC_BUFFERSIZE		(4 * 1024)
 
 int dacLBufferRead, dacLBufferWrite, dacLBufferCount;
-/* G&W: DAC ring in DTCM (~32 KiB); allocated in sound_init. */
+/* G&W: DAC ring in DTCM; allocated in sound_init. */
 uint16_t *dacBufferL = NULL;
 int fixsoundmahjong;
 

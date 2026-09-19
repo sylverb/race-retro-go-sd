@@ -909,5 +909,6 @@ void BSOD(BSOD_t fault, uint32_t pc, uint32_t lr)
 }
 void boot_magic_set(uint32_t magic) { (void)magic; }
 void SystemClock_Config(uint8_t new_oc_level) { (void)new_oc_level; }
+uint8_t odroid_settings_cpu_oc_level_get(void) { return 0; }
 void uptime_inc(void) {}
 uint32_t uptime_get(void) { return host_platform_ticks_ms(); }
