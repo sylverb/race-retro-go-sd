@@ -712,7 +712,7 @@ void setFlashSize(unsigned int romSize)
    /* add individual hacks here. */
 
    /*delta warp */
-   if(strncmp((const char *)&mainrom[0x24], "DELTA WARP ", 11)==0)
+   if(mainrom && strncmp((const char *)&mainrom[0x24], "DELTA WARP ", 11)==0)
       cartSize = 8;   /* 1 8mbit chip */
    else if(romSize > 0x200000)
       cartSize = 32; /* 2 16mbit chips */

@@ -165,12 +165,19 @@ void mainemuinit(void)
    if (setting_ngp_language == 1)
       tlcsMemWriteB(0x00006F87,0x00);
 
-   /* kludges & fixes */
+   /* kludges & fixes — Sonic / Metal Slug 2nd expect header[0x1F]=0xFF.
+    * Never store through get_address(): with XIP mainrom that write hardfaults
+    * the G&W (imprecise bus fault often reported inside setFlashSize next). */
    switch (tlcsMemReadW(0x00200020))
    {
       case 0x0059:	/* Sonic          */
       case 0x0061:	/* Metal Slug 2nd */
-         *get_address(0x0020001F) = 0xFF;
+         if (mainrom_in_flash) {
+            rom_soft_patch_1f = 1;
+            rom_soft_patch_1f_val = 0xFF;
+         } else if (mainrom) {
+            mainrom[0x1F] = 0xFF;
+         }
          break;
    }
    ngpSoundOff();
@@ -263,6 +270,7 @@ int handleInputFile(const char *romName,
 		 * cart address decode, so no open-bus fill is needed here. */
 		mainrom = (unsigned char *)romData;
 		mainrom_in_flash = 1;
+		rom_soft_patch_1f = 0;
 
 		m_emuInfo.romSize = size;
 		strncpy(m_emuInfo.RomFileName, romName,

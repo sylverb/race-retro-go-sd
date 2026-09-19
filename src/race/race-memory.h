@@ -41,6 +41,8 @@ extern uint8_t	ngpInputState;
 extern unsigned char mainram[];			/* All RAM areas */
 extern unsigned char *mainrom;			/* ROM image area (XIP from external flash) */
 extern int mainrom_in_flash;			/* set when mainrom points at read-only flash */
+extern int rom_soft_patch_1f;			/* override cart header byte 0x1F on read */
+extern unsigned char rom_soft_patch_1f_val;
 extern unsigned char cpurom[];			/* Bios ROM image area */
 
 /* TLCS 900h memory */
@@ -149,12 +151,18 @@ static INLINE unsigned char tlcsMemReadB(unsigned int addr)
    }
 	else
 	{
-		if (addr<0x00400000)
+		if (addr<0x00400000) {
+            if (rom_soft_patch_1f && (addr - 0x00200000) == 0x1F)
+               return rom_soft_patch_1f_val;
             return mainrom[(addr-0x00200000)/*&cartAddrMask*/];
+        }
 		if (addr<0x00800000)
             return 0xFF;
-		if (addr<0x00a00000)
+		if (addr<0x00a00000) {
+            if (rom_soft_patch_1f && (addr - (0x00800000-0x00200000)) == 0x1F)
+               return rom_soft_patch_1f_val;
             return mainrom[(addr-(0x00800000-0x00200000))/*&cartAddrMask*/];
+        }
 		if (addr<0x00ff0000)
             return 0xFF;
 		return cpurom[addr-0x00ff0000];

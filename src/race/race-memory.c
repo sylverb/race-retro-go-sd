@@ -43,6 +43,10 @@ unsigned char __attribute__ ((__aligned__(4))) mainram[(64+32+128)*1024];
  * issued against read-only flash. */
 unsigned char *mainrom = NULL;
 int mainrom_in_flash = 0;
+/* Sonic / Metal Slug 2nd need header[0x1F]=0xFF. With XIP ROM we cannot
+ * store into flash, so reads of that byte are overridden instead. */
+int rom_soft_patch_1f = 0;
+unsigned char rom_soft_patch_1f_val = 0xFF;
 /* CPU internal ROM including vector table starting at 0xff0000 */
 unsigned char __attribute__ ((__aligned__(4))) cpurom[64*1024]; /* G&W: TLCS900 internal ROM at 0xff0000 is 64KB; was over-allocated at 256KB */
 unsigned char __attribute__ ((__aligned__(4))) *cpuram;
